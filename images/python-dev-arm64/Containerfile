@@ -45,7 +45,14 @@ RUN ssh-keygen -A \
     && echo '* - nofile 1048576' >> /etc/security/limits.conf \
     && mkdir -p /home/sandbox/.ssh && chmod 700 /home/sandbox/.ssh \
     && chmod 700 /home/sandbox \
-    && mkdir -p /workspace && chown 1000:1000 /workspace
+    && mkdir -p /workspace && chown 1000:1000 /workspace \
+    # dirge's macOS boot path (exec_cmd in sandbox/microvm/mod.rs) never
+    # mounts tmpfs over /run or creates /run/sshd the way its Linux init
+    # config does, so sshd's privilege-separation directory must already
+    # exist in the image or sshd fails with "Missing privilege separation
+    # directory: /run/sshd". Baking it in here is harmless on Linux hosts
+    # too, since their tmpfs mount over /run recreates it anyway.
+    && mkdir -p /run/sshd && chmod 755 /run/sshd
 
 # Make uv/uvx and the PATH additions visible to sshd sessions (sshd sources
 # /etc/environment via PAM, so this reaches the sandbox user's shell).
