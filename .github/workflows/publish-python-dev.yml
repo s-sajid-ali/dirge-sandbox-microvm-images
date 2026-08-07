@@ -56,11 +56,14 @@ jobs:
             type=sha,format=short
             type=ref,event=pr
 
-      # Single-platform (linux/arm64) build produces a plain OCI image
-      # manifest rather than a multi-arch index. dirge's manifest-fetch (as
-      # of dirge-agent 0.21.11) sends an Accept header that omits the OCI
-      # index / Docker manifest-list media types, so it can't resolve a
-      # multi-arch index — see https://github.com/dirge-code/dirge.
+      # Single-platform (linux/arm64) build with provenance/SBOM disabled,
+      # so buildx pushes a plain OCI image manifest instead of wrapping it
+      # in an index (buildx attaches build provenance as an attestation
+      # manifest alongside the image by default, which forces an index
+      # even for a single-platform build). dirge's manifest-fetch (as of
+      # dirge-agent 0.21.11) sends an Accept header that omits the OCI
+      # index / Docker manifest-list media types, so it can't resolve an
+      # index of any kind — see https://github.com/dirge-code/dirge.
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -71,5 +74,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,oci-mediatypes=true
+          provenance: false
+          sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
