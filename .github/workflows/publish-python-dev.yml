@@ -63,7 +63,7 @@ jobs:
       # Push a real OCI image (not the legacy Docker manifest list) so it
       # can be pulled by any OCI-compliant client and used directly by
       # dirge's microvm sandbox as `--microvm-image ghcr.io/...`.
-      - name: Build and push
+      - name: Build and push (multi-arch index)
         uses: docker/build-push-action@v6
         with:
           context: images/python-dev
@@ -72,6 +72,62 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,oci-mediatypes=true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # dirge's manifest-fetch (as of dirge-agent 0.21.11) sends an Accept
+      # header that omits the OCI index / Docker manifest-list media types,
+      # so registries correctly refuse to serve the multi-arch index above
+      # and dirge sees an empty layer list. Until that's fixed upstream,
+      # also push single-platform, arch-suffixed tags (e.g. `-amd64`,
+      # `-arm64`) that resolve directly to a plain image manifest.
+      - name: Extract image metadata (amd64)
+        id: meta-amd64
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            suffix=-amd64,onlatest=true
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=ref,event=pr
+
+      - name: Build and push (amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: images/python-dev
+          file: images/python-dev/Containerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-amd64.outputs.tags }}
+          labels: ${{ steps.meta-amd64.outputs.labels }}
+          outputs: type=image,oci-mediatypes=true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract image metadata (arm64)
+        id: meta-arm64
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            suffix=-arm64,onlatest=true
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=ref,event=pr
+
+      - name: Build and push (arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: images/python-dev
+          file: images/python-dev/Containerfile
+          platforms: linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-arm64.outputs.tags }}
+          labels: ${{ steps.meta-arm64.outputs.labels }}
           outputs: type=image,oci-mediatypes=true
           cache-from: type=gha
           cache-to: type=gha,mode=max
