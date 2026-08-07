@@ -1,7 +1,7 @@
 # Dirge microVM guest image — Python development variant with uv.
 #
 # Built and published as an OCI artifact for use with:
-#   dirge --sandbox microvm --microvm-image ghcr.io/<org>/<repo>/python-dev:<tag>
+#   dirge sandbox setup --image ghcr.io/<org>/<repo>/python-dev-arm64:<tag>
 #
 # See: https://github.com/dirge-code/dirge/blob/main/docs/microvm/CUSTOM_IMAGES.md
 

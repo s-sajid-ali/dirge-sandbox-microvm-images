@@ -1,4 +1,4 @@
-# python-dev microVM image
+# python-dev-arm64 microVM image
 
 A [dirge](https://github.com/dirge-code/dirge) microVM guest image for Python
 development, built on Debian bookworm-slim with
@@ -6,12 +6,17 @@ development, built on Debian bookworm-slim with
 toolchain), following the guest image requirements in
 [`CUSTOM_IMAGES.md`](https://github.com/dirge-code/dirge/blob/main/docs/microvm/CUSTOM_IMAGES.md).
 
+This image is built for `linux/arm64` only (Apple Silicon). dirge's
+manifest-fetch (as of dirge-agent 0.21.11) can't resolve a multi-arch OCI
+index — see https://github.com/dirge-code/dirge — so a single-platform
+image is published instead of a multi-arch one.
+
 ## Usage
 
 Pull directly from GHCR — no local build or buildah required:
 
 ```bash
-dirge --sandbox microvm --microvm-image ghcr.io/<owner>/<repo>/python-dev:latest
+dirge sandbox setup --image ghcr.io/<owner>/<repo>/python-dev-arm64:latest
 ```
 
 Replace `<owner>/<repo>` with this repository's GitHub path. Available tags:
@@ -41,8 +46,8 @@ buildah bud --storage-driver vfs --tag python-dev -f Containerfile .
 
 ## Publishing
 
-Pushing changes to `images/python-dev/**` on `main` triggers
+Pushing changes to `images/python-dev-arm64/**` on `main` triggers
 [`.github/workflows/publish-python-dev.yml`](../../.github/workflows/publish-python-dev.yml),
-which builds a multi-arch (`linux/amd64` + `linux/arm64`) OCI image and
-pushes it to `ghcr.io/<owner>/<repo>/python-dev`. It can also be run manually
-via `workflow_dispatch`.
+which builds a `linux/arm64` OCI image and pushes it to
+`ghcr.io/<owner>/<repo>/python-dev-arm64`. It can also be run manually via
+`workflow_dispatch`.

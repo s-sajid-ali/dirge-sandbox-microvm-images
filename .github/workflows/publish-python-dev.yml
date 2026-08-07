@@ -1,27 +1,26 @@
 name: Publish python-dev microVM image
 
-# Builds images/python-dev/Containerfile as a multi-arch (amd64 + arm64) OCI
-# image and pushes it to GHCR. Building multi-arch here means end users on
-# macOS (Apple Silicon or Intel) can `docker pull` / `dirge --microvm-image
-# ghcr.io/<owner>/<repo>/python-dev:<tag>` directly, without needing buildah
-# installed locally to build the guest image themselves.
+# Builds images/python-dev-arm64/Containerfile as a linux/arm64 OCI image
+# and pushes it to GHCR, so it can be pulled directly with `dirge
+# --microvm-image ghcr.io/<owner>/<repo>/python-dev-arm64:<tag>` on Apple
+# Silicon without needing buildah installed locally.
 
 on:
   push:
     branches: [main]
     paths:
-      - "images/python-dev/**"
+      - "images/python-dev-arm64/**"
       - ".github/workflows/publish-python-dev.yml"
   pull_request:
     branches: [main]
     paths:
-      - "images/python-dev/**"
+      - "images/python-dev-arm64/**"
       - ".github/workflows/publish-python-dev.yml"
   workflow_dispatch: {}
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/python-dev
+  IMAGE_NAME: ${{ github.repository }}/python-dev-arm64
 
 permissions:
   contents: read
@@ -35,9 +34,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -60,74 +56,20 @@ jobs:
             type=sha,format=short
             type=ref,event=pr
 
-      # Push a real OCI image (not the legacy Docker manifest list) so it
-      # can be pulled by any OCI-compliant client and used directly by
-      # dirge's microvm sandbox as `--microvm-image ghcr.io/...`.
-      - name: Build and push (multi-arch index)
+      # Single-platform (linux/arm64) build produces a plain OCI image
+      # manifest rather than a multi-arch index. dirge's manifest-fetch (as
+      # of dirge-agent 0.21.11) sends an Accept header that omits the OCI
+      # index / Docker manifest-list media types, so it can't resolve a
+      # multi-arch index — see https://github.com/dirge-code/dirge.
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: images/python-dev
-          file: images/python-dev/Containerfile
-          platforms: linux/amd64,linux/arm64
+          context: images/python-dev-arm64
+          file: images/python-dev-arm64/Containerfile
+          platforms: linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,oci-mediatypes=true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # dirge's manifest-fetch (as of dirge-agent 0.21.11) sends an Accept
-      # header that omits the OCI index / Docker manifest-list media types,
-      # so registries correctly refuse to serve the multi-arch index above
-      # and dirge sees an empty layer list. Until that's fixed upstream,
-      # also push single-platform, arch-suffixed tags (e.g. `-amd64`,
-      # `-arm64`) that resolve directly to a plain image manifest.
-      - name: Extract image metadata (amd64)
-        id: meta-amd64
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          flavor: |
-            suffix=-amd64,onlatest=true
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,format=short
-            type=ref,event=pr
-
-      - name: Build and push (amd64)
-        uses: docker/build-push-action@v6
-        with:
-          context: images/python-dev
-          file: images/python-dev/Containerfile
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta-amd64.outputs.tags }}
-          labels: ${{ steps.meta-amd64.outputs.labels }}
-          outputs: type=image,oci-mediatypes=true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Extract image metadata (arm64)
-        id: meta-arm64
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          flavor: |
-            suffix=-arm64,onlatest=true
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,format=short
-            type=ref,event=pr
-
-      - name: Build and push (arm64)
-        uses: docker/build-push-action@v6
-        with:
-          context: images/python-dev
-          file: images/python-dev/Containerfile
-          platforms: linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta-arm64.outputs.tags }}
-          labels: ${{ steps.meta-arm64.outputs.labels }}
           outputs: type=image,oci-mediatypes=true
           cache-from: type=gha
           cache-to: type=gha,mode=max
