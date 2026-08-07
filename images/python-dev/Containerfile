@@ -1,0 +1,63 @@
+# Dirge microVM guest image — Python development variant with uv.
+#
+# Built and published as an OCI artifact for use with:
+#   dirge --sandbox microvm --microvm-image ghcr.io/<org>/<repo>/python-dev:<tag>
+#
+# See: https://github.com/dirge-code/dirge/blob/main/docs/microvm/CUSTOM_IMAGES.md
+
+FROM docker.io/library/debian:bookworm-20250224-slim
+
+RUN mkdir -p /var/empty && chmod 755 /var/empty \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        openssh-server \
+        ca-certificates \
+        curl \
+        git \
+        build-essential \
+        vim-tiny \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv + uvx by copying the static binaries from Astral's distroless
+# image (the officially recommended way to add uv to a Containerfile).
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+# uv-managed Python installs and tool installs live under /usr/local so they
+# are available to the sandbox user regardless of $HOME.
+ENV UV_PYTHON_INSTALL_DIR="/usr/local/share/uv/python" \
+    UV_TOOL_DIR="/usr/local/share/uv/tools" \
+    UV_TOOL_BIN_DIR="/usr/local/bin" \
+    UV_CACHE_DIR="/usr/local/share/uv/cache" \
+    UV_PYTHON_PREFERENCE="only-managed"
+
+# Pre-install a default Python toolchain so first `uv run`/`uv sync` in the
+# guest doesn't need network access.
+RUN uv python install 3.13 \
+    && mkdir -p /usr/local/share/uv \
+    && chmod -R a+rX /usr/local/share/uv
+
+RUN ssh-keygen -A \
+    && adduser --system --no-create-home sshd \
+    && adduser --disabled-password --gecos '' sandbox \
+    && echo 'PermitRootLogin no' >> /etc/ssh/sshd_config \
+    && echo 'PasswordAuthentication no' >> /etc/ssh/sshd_config \
+    && echo 'AcceptEnv LANG LC_*' >> /etc/ssh/sshd_config \
+    && echo '* - nofile 1048576' >> /etc/security/limits.conf \
+    && mkdir -p /home/sandbox/.ssh && chmod 700 /home/sandbox/.ssh \
+    && chmod 700 /home/sandbox \
+    && mkdir -p /workspace && chown 1000:1000 /workspace
+
+# Make uv/uvx and the PATH additions visible to sshd sessions (sshd sources
+# /etc/environment via PAM, so this reaches the sandbox user's shell).
+RUN echo 'PATH="/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"' >> /etc/environment \
+    && echo 'UV_PYTHON_INSTALL_DIR="/usr/local/share/uv/python"' >> /etc/environment \
+    && echo 'UV_TOOL_DIR="/usr/local/share/uv/tools"' >> /etc/environment \
+    && echo 'UV_TOOL_BIN_DIR="/usr/local/bin"' >> /etc/environment \
+    && echo 'UV_CACHE_DIR="/usr/local/share/uv/cache"' >> /etc/environment
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
+    CMD pgrep sshd || exit 1
+
+EXPOSE 22
+
+CMD ["/usr/sbin/sshd", "-D", "-e"]
