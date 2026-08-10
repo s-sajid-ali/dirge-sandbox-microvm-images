@@ -44,6 +44,7 @@ RUN ssh-keygen -A \
     # ownership sshd's StrictModes check expects, so without this the guest
     # rejects the key with "authentication rejected by the server (publickey)".
     && echo 'StrictModes no' >> /etc/ssh/sshd_config \
+    && chmod 700 /home/sandbox \
     && mkdir -p /home/sandbox/.ssh && chmod 700 /home/sandbox/.ssh \
     && mkdir -p /workspace && chown 1000:1000 /workspace
 
