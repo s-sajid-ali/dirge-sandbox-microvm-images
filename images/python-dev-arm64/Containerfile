@@ -47,6 +47,11 @@ RUN ssh-keygen -A \
     && echo 'PermitRootLogin no' >> /etc/ssh/sshd_config \
     && echo 'PasswordAuthentication no' >> /etc/ssh/sshd_config \
     && echo 'AcceptEnv LANG LC_*' >> /etc/ssh/sshd_config \
+    # dirge injects authorized_keys into /home/sandbox/.ssh via a virtio-fs
+    # mount from the host; files arriving over virtio-fs don't carry the
+    # ownership sshd's StrictModes check expects, so without this the guest
+    # rejects the key with "authentication rejected by the server (publickey)".
+    && echo 'StrictModes no' >> /etc/ssh/sshd_config \
     && mkdir -p /home/sandbox/.ssh && chmod 700 /home/sandbox/.ssh \
     && chmod 700 /home/sandbox \
     && mkdir -p /workspace && chown 1000:1000 /workspace
