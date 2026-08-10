@@ -3,14 +3,6 @@
 # Built and published as an OCI artifact for use with:
 #   dirge sandbox setup --image ghcr.io/<org>/<repo>/python-dev-arm64:<tag>
 #
-# Alpine-based (not Debian): Debian's openssh-server hardcodes /run/sshd
-# as its privilege-separation chroot, and dirge's macOS boot path only
-# makes /var/empty root-owned tmpfs at boot (not /run), so Debian sshd
-# fails there with "Missing privilege separation directory: /run/sshd"
-# or "/run/sshd must be owned by root". Alpine's openssh-server uses
-# /var/empty for privsep instead, which dirge already handles correctly
-# on macOS — matching dirge's own built-in local Alpine microVM image.
-#
 # See: https://github.com/dirge-code/dirge/blob/main/docs/microvm/CUSTOM_IMAGES.md
 
 FROM docker.io/library/alpine:3.21.3
@@ -43,7 +35,7 @@ RUN uv python install 3.13 \
     && chmod -R a+rX /usr/local/share/uv
 
 RUN ssh-keygen -A \
-    && adduser -D -h /home/sandbox -s /bin/sh sandbox \
+    && adduser -D -u 1000 sandbox \
     && echo 'PermitRootLogin no' >> /etc/ssh/sshd_config \
     && echo 'PasswordAuthentication no' >> /etc/ssh/sshd_config \
     && echo 'AcceptEnv LANG LC_*' >> /etc/ssh/sshd_config \
@@ -53,7 +45,6 @@ RUN ssh-keygen -A \
     # rejects the key with "authentication rejected by the server (publickey)".
     && echo 'StrictModes no' >> /etc/ssh/sshd_config \
     && mkdir -p /home/sandbox/.ssh && chmod 700 /home/sandbox/.ssh \
-    && chmod 700 /home/sandbox \
     && mkdir -p /workspace && chown 1000:1000 /workspace
 
 # Alpine's openssh-server is built without PAM, so it never sources
