@@ -36,6 +36,10 @@ RUN uv python install 3.13 \
 
 RUN ssh-keygen -A \
     && adduser -D -u 1000 sandbox \
+    # BusyBox adduser leaves the shadow entry as "!" (locked account).
+    # With OpenSSH and UsePAM disabled on Alpine, that blocks pubkey auth too.
+    # Replace it with "*" so password login still cannot work, but SSH keys can.
+    && sed -i 's/^sandbox:!:/sandbox:*:/' /etc/shadow \
     && echo 'PermitRootLogin no' >> /etc/ssh/sshd_config \
     && echo 'PasswordAuthentication no' >> /etc/ssh/sshd_config \
     && echo 'AcceptEnv LANG LC_*' >> /etc/ssh/sshd_config \
