@@ -1,7 +1,7 @@
 # python-dev-arm64 microVM image
 
 A [dirge](https://github.com/dirge-code/dirge) microVM guest image for Python
-development, built on Debian bookworm-slim with
+development, built on Alpine with
 [uv](https://docs.astral.sh/uv/) preinstalled (including a pinned Python 3.13
 toolchain), following the guest image requirements in
 [`CUSTOM_IMAGES.md`](https://github.com/dirge-code/dirge/blob/main/docs/microvm/CUSTOM_IMAGES.md).
@@ -28,6 +28,8 @@ Replace `<owner>/<repo>` with this repository's GitHub path. Available tags:
 
 - OpenSSH server, configured per dirge's requirements (no root login, no
   password auth, `sandbox` user at UID 1000, `/workspace` mount point)
+- Boot-time `/etc/resolv.conf` generation when the microVM runtime does not
+  inject a usable resolver config
 - `uv` and `uvx` (copied from `ghcr.io/astral-sh/uv`)
 - Python 3.13, installed via `uv python install` at build time so the first
   `uv run` / `uv sync` in the guest works offline

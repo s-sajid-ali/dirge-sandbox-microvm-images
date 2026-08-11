@@ -16,6 +16,8 @@ RUN apk add --no-cache \
         vim \
     && mkdir -p /var/empty && chmod 755 /var/empty && chown root:root /var/empty
 
+COPY entrypoint.sh /usr/local/bin/dirge-microvm-entrypoint
+
 # Install uv + uvx by copying the static (musl-linked) binaries from
 # Astral's Alpine image — the distroless glibc image doesn't run here.
 COPY --from=ghcr.io/astral-sh/uv:alpine /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
@@ -63,9 +65,11 @@ RUN { \
         echo 'export UV_CACHE_DIR="/usr/local/share/uv/cache"'; \
     } >> /etc/profile
 
+RUN chmod 755 /usr/local/bin/dirge-microvm-entrypoint
+
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
     CMD pgrep sshd || exit 1
 
 EXPOSE 22
 
-CMD ["/usr/sbin/sshd", "-D", "-e"]
+CMD ["/usr/local/bin/dirge-microvm-entrypoint"]
