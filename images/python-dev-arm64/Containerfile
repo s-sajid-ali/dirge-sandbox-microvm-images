@@ -17,6 +17,7 @@ RUN apk add --no-cache \
     && mkdir -p /var/empty && chmod 755 /var/empty && chown root:root /var/empty
 
 COPY entrypoint.sh /usr/local/bin/dirge-microvm-entrypoint
+COPY sshd-wrapper.sh /usr/local/bin/dirge-sshd-wrapper
 
 # Install uv + uvx by copying the static (musl-linked) binaries from
 # Astral's Alpine image — the distroless glibc image doesn't run here.
@@ -53,6 +54,11 @@ RUN ssh-keygen -A \
     && chmod 700 /home/sandbox \
     && mkdir -p /home/sandbox/.ssh && chmod 700 /home/sandbox/.ssh \
     && mkdir -p /workspace && chown 1000:1000 /workspace
+
+# Dirge's microVM runner bypasses the image CMD and launches /usr/sbin/sshd
+# directly. Wrap that path so guest DNS bootstrap still runs before sshd.
+RUN mv /usr/sbin/sshd /usr/sbin/sshd.real \
+    && install -m 755 /usr/local/bin/dirge-sshd-wrapper /usr/sbin/sshd
 
 # Alpine's openssh-server is built without PAM, so it never sources
 # /etc/environment for sessions — export PATH and uv's env vars from
